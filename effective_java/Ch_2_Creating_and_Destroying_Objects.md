@@ -277,4 +277,57 @@ public static void main(String[] args) {
 虽然相比C或者C++这种需要程序员自己管理内存的语言而言，Java的垃圾回收机制带来了巨大的方便，但是也不是说就不用再考虑内存管理的事情了，考虑下面的简单的栈实现
 
 ```
+// Can you spot the "memory leak"?
+public class Stack {
+  private Object[] elements;
+  private int size = 0;
+  private static final int DEFAULT_INITIAL_CAPACITY = 16;
+  public Stack() {
+    elements = new Object[DEFAULT_INITIAL_CAPACITY];
+  }
+  public void push(Object e) {
+    ensureCapacity();
+    elements[size++] = e;
+  }
+  public Object pop() {
+    if (size == 0)
+    throw new EmptyStackException();
+    return elements[--size];
+  }
+  /**
+  * Ensure space for at least one more element, roughly
+  * doubling the capacity each time the array needs to grow.
+  */
+  private void ensureCapacity() {
+    if (elements.length == size)
+    elements = Arrays.copyOf(elements, 2 * size + 1);
+  }
+}
+```
+
+这段代码内存泄漏的地方在于，这个栈展开之后再收缩的话，被抛弃的对象的过期引用实际上栈内部依然在维护；解决的方式也很简单，在弹出的时候只要清空引用就好；但也不是每一个对象都需要这么做，因为不是每一种状况都是自己管理内存的；
+
+```
+public Object pop() {
+  if (size == 0)
+  throw new EmptyStackException();
+  Object result = elements[--size];
+  elements[size] = null; // Eliminate obsolete reference
+  return result;
+}
+```
+
+### Item7 避免使用finalizer方法
+
+终结方法，finalizer通常是不可预测的，也很危险，一般不要使用；但也是有可用之处的；C++的析构器和对应在Java中是使用tryfinally结构来完成类似的工作。终结方法被执行的概率很低，不能保证某个时间一定会执行；显式的终结方法地实现是使用try-finally结构来集合起来使用，确保及时终止，在finally中内部调用终止方法；
+
+```
+// try-finally block guarantees execution of termination method
+Foo foo = new Foo(...);
+try {
+  // Do what must be done with foo
+  ...
+  } finally {
+    foo.terminate(); // Explicit termination method
+  }
 ```
